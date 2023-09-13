@@ -168,7 +168,8 @@ It would be easier if we could exclude rows from our counts if the instructor is
 
 **Q5** Take one of the questions you listed in the final question of the pre_lab and try to answer it here in code. If you don't know how to fully answer it, write what code you can and describe in words what else you would need to do. If you got an answer, is it interesting? **A5**
 
-Tried out the code below. Shouldn't change the previous answers I got
+Tried out the code below. Shouldn't change the previous answers I got since I'm only removing NAs and TBAs, not populating them with
+additional information.
 
 
 ```{r}

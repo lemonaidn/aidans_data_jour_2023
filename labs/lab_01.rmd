@@ -1,0 +1,184 @@
+---
+title: "lab_01"
+author: "Derek Willis"
+date: "2023-01-05"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+# Turn off scientific notation
+options(scipen=999)
+```
+
+## About this lab
+
+To complete this lab, you need to: \* run existing code as directed (look for **Task**). \* modify existing code as directed (look for **Task**). \* write code in empty codeblocks provided to answer questions included (look for **Q**). \* write out the answer in the form of a complete sentence in the space given (look for **A**). When you are finished, commit changes and push to your personal GitHub repo, then submit the URL to this document on ELMS.
+
+Remember to add any new verbs or concepts to your class reference notebook!
+
+## Load libraries and establish settings
+
+**Task** Run the codeblock below to load the Tidyverse. To run the codeblock, hit the little green play button in the upper right corner of the gray area (the codeblock) below.
+
+```{r}
+# Load the tidyverse. If you have not installed the tidyverse already, remove the # from the next line and run it first.  
+# install.packages('tidyverse')
+library(tidyverse)
+```
+
+## Load Data
+
+We're going to load the UMD courses data.
+
+**Task** Run the codeblock below to load the data, which is contained in an RDS file.
+
+```{r}
+umd_courses <- read_rds("lab_01.rds")
+```
+
+## Answer questions
+
+**Q1** Which department has the highest mean (average) number of seats for its classes? You need to show the department with the highest average first. Which one is the most surprising/interesting to you?
+
+
+**A1**
+
+"Engineering, Cooperative Education" has the highest mean (average) number of seats for its classes.
+
+I'm interested/disappointed to see that Mathematics is in the Top 10, too. We had a similar situation
+at Virginia Tech, where most 100-200 level math courses are taught in massive classes with little
+or no opportunity for 1:1 interaction with an actual professor... which is a shame, because if you're not a
+natural math wiz, math might be one of the worst possible subjects to teach in that manner.
+
+I'm also surprised to see that Biology is so low/small! I would have assumed that at least some 100-200
+level courses would be requirements for a whole slew of different science majors, and therefore would be forced to have
+larger class sizes.
+
+```{r}
+umd_courses |>
+  group_by(department) |>
+  summarise(
+    mean_seats = mean(seats),
+  ) |>
+  arrange(desc(mean_seats))
+
+```
+
+**Q2** Find out the greatest number of times any individual class has been offered in our dataset. Your code must show the greatest number of classes first. 
+
+**A2**
+
+"Any individual class" could be defined/interpreted in a variety of ways. Here are the two ways I chose to do so:
+
+Method 1: Define it based on unique Class IDs. The drawback of this is that a single class in real life might be listed using multiple Class IDs. Example: This class! It's listed as both JOUR 472 and JOUR 772, even though both are taught at the same time/place/by the same professor.
+
+Therefore, a better way to define "individual classes" MIGHT be:
+
+Method 2: Define it as any class with the same title within the same department. Drawbacks: calling this the "better" method relies on some assumptions that I can't be 100% sure of -- namely, I can't be sure whether "same title and department with multiple
+IDs" ALWAYS represents a single class in real life, or if in other instances that really could represent two separate classes. Also, there
+might be classes that are cross-listed across multiple departments, but grouping by both title and department treats those as separate classes. I still think this is preferable though in case there are, for example, introductory stats classes with the same title in different departments that really do represent separate classes. 
+
+So I've answered this question using both methods, but I prefer Answer 2:
+
+Method 1 Answer: It's a tie! A 150+ way tie, in fact. Too many to list out individually
+
+Method 2 Answer: Directed Graduate Studies in Studio Art, with 72 occurrences
+
+Note: Highlighting that there are still potential flaws with Method 2. For example, should we really consider ARTT699A and ARTT699B to be the same individual class? Maybe, but maybe not. Hard to know without more information about the classes themselves, and better clarity and consensus around what "individual classes" should be defined as
+
+```{r}
+
+# Method 1. Defining individual classes based on unique Class IDs:
+
+umd_courses |>
+  group_by(id) |>
+  summarise(
+    count_classes = n()
+  ) |>
+  arrange(desc(count_classes))
+
+```
+```{r}
+# 2. Method 2: Defining individual classes as any class with the same title within the same department
+
+umd_courses |>
+  group_by(title, department) |>
+  summarise(
+    count_classes = n()
+  ) |>
+  arrange(desc(count_classes))
+
+```
+
+**Q3** Count the number of courses for each instructor and department. Which instructor has taught the most?
+
+**A3**
+
+Excluding the NAs and TBAs, and grouping the df by both instructor and department (which I think is what this question asks for), then:
+Keith Yearwood has taught the most classes for any SINGLE department.
+
+I might be misinterpreting the question though. If the question is actually asking us to: a) count the number of classes taught by department, and separately, b) determine which instructor has taught the most classes across ANY/ALL departments, then:
+
+a) The Business and Management department has taught the most classes of any department, and
+b) Excluding the NAs and TBAs, Elsa Barkley Brown has taught the most classes across any/all departments
+
+
+```{r}
+
+# which instructor has taught the most classes for any SINGLE department?
+
+umd_courses |>
+  group_by(instructors, department) |>
+  summarise(
+    count_classes = n()
+  ) |>
+  arrange(desc(count_classes))
+
+```
+```{r}
+
+# ALTERNATIVELY:
+
+# count the number of classes taught by department...
+
+umd_courses |>
+  group_by(department) |>
+  summarise(
+    count_classes = n()
+  ) |>
+  arrange(desc(count_classes))
+
+```
+```{r}
+# ... AND determine which instructor has taught the most classes across ANY/ALL departments
+
+umd_courses |>
+  group_by(instructors) |>
+  summarise(
+    count_classes = n()
+  ) |>
+  arrange(desc(count_classes))
+
+```
+
+**Q4** Given the results for Q3, what would have made it easier to find the answer? You don't have to know *how* to accomplish this; I want you to describe in words what would make the answer easier to see. How confident are you that the answer you got is the right one, and why? **A4**
+
+It would be easier if we could exclude rows from our counts if the instructor is NA or TBA! Or, even better, if we had additional information to know a) why those records have NAs or TBAs in "Instructor," and b) if we had more current/accurate information to populate those records (if/when appropriate -- there might be some self-guided online classes, for example, where there truly isn't an assigned instructor.) I'm not 100% confident this is the "right" answer without that information 
+
+**Q5** Take one of the questions you listed in the final question of the pre_lab and try to answer it here in code. If you don't know how to fully answer it, write what code you can and describe in words what else you would need to do. If you got an answer, is it interesting? **A5**
+
+Tried out the code below. Shouldn't change the previous answers I got
+
+
+```{r}
+# filter the data set to remove NAs
+
+no_NAs_umd_courses = umd_courses |>
+  filter(is.na(instructors) == FALSE)
+
+# filter the data set to remove "Instructor: TBA"
+
+no_TBAs_umd_courses = umd_courses |>
+  filter(instructors != "Instructor: TBA")
+```

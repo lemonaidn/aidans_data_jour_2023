@@ -1,0 +1,176 @@
+---
+title: "lab_02"
+author: "derek willis"
+date: "2023-09-15"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load libraries and establish settings
+
+```{r}
+# Turn off scientific notation
+options(scipen=999)
+
+# Load the tidyverse. If you have not installed the tidyverse already, remove the # from the next line and run it first.  
+# install.packages('tidyverse')
+library(tidyverse)
+library(lubridate)
+```
+
+## Load Data
+
+Let's keep working with the UMD courses and Maryland campaign expense data we used in the pre_lab.
+
+```{r}
+umd_courses <- read_rds("data/umd_courses.rds")
+maryland_expenses <- read_csv("data/maryland_expenses.csv")
+```
+
+## Answer questions
+
+**Q1.** How many departments have offered the courses with "Climate" in the title and at least one seat? Which department has offered the most?
+
+**A1.**
+
+26 departments. Atmospheric and Oceanic Science has offered the most (68)
+
+```{r}
+umd_courses
+
+```
+
+```{r}
+maryland_expenses
+```
+```{r}
+climate_courses_with_seats = umd_courses %>%
+  filter(seats >= 1) %>%
+  filter(str_detect(title, "Climate"))
+
+climate_courses_with_seats %>%
+    group_by(department) |>
+  summarise(
+    count_classes = n()
+  ) |>
+  arrange(desc(count_classes))
+```
+
+
+**Q2.** Of the departments listed in A2, which one is the most interesting to you, and why?
+**A2.**
+
+Anthropology! I wouldn't have expected climate-related classes to be related to anthropology. At first I wondered if "climate" in this context referred more to something like social/political "climates" rather than atmospheric climate. But after examining the data further and reading course descriptions, it looks like there really are a lot of ANTH courses tied to atmospheric climate change specifically
+
+**Q3** Which departments have the most courses in the Fall 2023 term? And which departments in that term have at least one syllabus posted? How are the top five departments different in each result?
+
+**A3.**
+
+a) Business and Management, School of Music, English, Teaching and Learning, and Info Studies have the most classes in Fall 2023 b)  There are 125 departments that have at least one syllabus posted during this term c) Economics and Bio Sciences Program replace English and Teach & Learning in the second list's top 5 (and School of Music drops to 3rd place instead of 2nd)
+
+```{r}
+
+umd_courses_fall_23 = umd_courses %>%
+  filter(term == 202308)
+
+umd_courses_fall_23 %>%
+  group_by(department) |>
+  summarise(
+    count_classes = n()
+  ) |>
+  arrange(desc(count_classes))
+
+```
+
+```{r}
+
+umd_courses_fall_23_syllabi = umd_courses_fall_23 %>%
+  filter(syllabus_count >= 1)
+
+umd_courses_fall_23_syllabi %>%
+   group_by(department) |>
+  summarise(
+    count_classes = n()
+  ) |>
+  arrange(desc(count_classes))
+
+```
+
+
+**Q4.** Using the Maryland campaign expenses data, change the datatype of the expenditure_date column so that it is a date and not a chr, saving the result as the same dataframe. Then create a new column for the month based on expenditure_date. Then write code that shows total amount spent each month by Wes Moore's committee (you'll need to search the data to find the exact name). Write a sentence describing the pattern of spending over time.
+
+**A4.**
+Moore's committee spends relatively little through the start of 2022, after which expenses start to increase -- with two huge spikes. The first spike in June-July 2022 and the second spike in October 2022. Those spikes make sense since they correspond with the run-up to the primary and general election
+
+```{r}
+
+maryland_expenses = maryland_expenses %>%
+  mutate(expenditure_date=mdy(expenditure_date))
+
+maryland_expenses = maryland_expenses %>%
+  mutate(month = floor_date(expenditure_date, "month"))
+
+wes_moore_committee_expenses = maryland_expenses %>%
+  filter(committee_name == "Moore  Wes For Maryland")
+
+wes_moore_committee_expenses = wes_moore_committee_expenses %>%
+  group_by(month) %>%
+  summarise(total_amount = sum(amount)) %>%
+  arrange(month)
+
+wes_moore_committee_expenses
+
+
+```
+
+**Q5.** Using case_when(), create a column in the Maryland expenses data called `spending_location` indicating whether each record spent money in Maryland or outside Maryland. For records that are in Maryland, make the new column's value "In-state" and for the others, make it "Out of state". Then write code that shows the total amount of money spent in each category and describe the results. You can do this in one statement or break it up into two statements (saving the new column to your dataframe).
+
+**A5**
+
+Is there an NA somewhere in one of more amounts for an out of state expense and unknown address expense, and that's why it's returning an NA total?...
+
+YUP, see Q6/A6 code chunk below. I did some googling to confirm this suspicion -- I had originally figured/misremembered that R would count NAs as 0s by default, but a quick look on stackoverflow confirmed that wasn't the case. Also had to look up which() since I couldn't remember what function would let me find the index of missing values within a vector.
+
+Could have also accomplished this by filtering the df to rows where amount was NA
+
+
+```{r}
+# NOTE: I'm adding "Unknown" to the list of possible values to handle cases when address is NA, rather than just assuming that all NAs are out of state expenditures. Hope that's okay
+
+maryland_expenses = maryland_expenses %>%
+  mutate(
+    spending_location = case_when(
+      str_detect(address, " Maryland ") ~ "In-state",
+      is.na(address) ~ NA,
+      .default = "Out of state"
+    )
+  )
+
+maryland_expenses %>%
+  group_by(spending_location) %>%
+  summarize(total = sum(amount)) %>%
+  arrange(desc(total))
+
+```
+
+
+
+
+**Q6.** Choose your own adventure: using either the UMD courses or campaign expenses data, ask and answer a question that is different than the previous ones. You can use one of the ones you provided in the pre_lab.
+**A6.**
+
+Check whether there are NAs in maryland_expenses$amount that are limited to Out of State and NA spending locations
+
+```{r}
+amount_NA_list = which(is.na(maryland_expenses$amount))
+```
+```{r}
+
+for (i in amount_NA_list) {
+  print(maryland_expenses$spending_location[i])
+}
+
+```

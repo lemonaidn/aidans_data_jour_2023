@@ -48,15 +48,12 @@ maryland_expenses
 ```
 ```{r}
 climate_courses_with_seats = umd_courses %>%
-  filter(seats >= 1) %>%
-  filter(str_detect(title, "Climate"))
-
-climate_courses_with_seats %>%
-    group_by(department) |>
-  summarise(
-    count_classes = n()
-  ) |>
+  filter(seats >= 1 & str_detect(title, "Climate")) %>%
+  group_by(department) %>%
+  summarise(count_classes = n()) %>%
   arrange(desc(count_classes))
+
+climate_courses_with_seats
 ```
 
 

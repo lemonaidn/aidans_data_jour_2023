@@ -21,7 +21,7 @@ knitr::opts_chunk$set(echo = TRUE)
 **Task** Run the following code in the gray-colored codeblock below to install refinr.
 
 ```{r}
-install.packages('refinr')
+# install.packages('refinr')
 ```
 
 ### Task 2: Load libraries and settings
@@ -95,7 +95,19 @@ cleaned_md_grant_loans
 
 ### Task 6: Filter cleaned_md_grant_loans to examine recipients that start with W
 
-**Task** Run the following code to group by grantee_clean and Grantee, then filter for recipients that start with W. Name three changes the refinr function made in the first 30 results. **Answer**
+**Task** Run the following code to group by grantee_clean and Grantee, then filter for recipients that start with W. Name three changes the refinr function made in the first 30 results.
+
+**Answer**
+
+Only one change in the first 30 results:
+
+WASHINGTON ADVENTIST UNIVERSITY -> Washington Adventist University
+
+Two changes in the next 10 results:
+
+WASHINGTON CO COMM. ACTION COUNCIL INC -> 	WASHINGTON COMM ACTION COUNCIL
+WASHINGTON COLLEGE -> Washington College
+
 
 ```{r}
 cleaned_md_grant_loans |>
@@ -104,12 +116,18 @@ cleaned_md_grant_loans |>
     count=n()
   ) |>
   filter(str_detect(Grantee, '^w|^W')) |>
-  arrange(Grantee)
+  arrange(Grantee) |>
+  mutate(name_unchanged = Grantee == grantee_clean)
 ```
 
 ### Task 7: Use a different refinr method to clean the city_clean field.
 
-**Task** Run the following code to use the n_gram_merge() function to clean the data, then group by grantee_clean and Grantee to examine recipients that start with W. Look at the differences. Does the changes it made vary substantially from the previous use of key_collision_merge? **Answer**
+**Task** Run the following code to use the n_gram_merge() function to clean the data, then group by grantee_clean and Grantee to examine recipients that start with W. Look at the differences. Does the changes it made vary substantially from the previous use of key_collision_merge?
+
+**Answer**
+
+No, it doesn't appear to vary substantially based on the first 40 results
+
 
 ```{r}
 cleaned_md_grant_loans <- md_grant_loans |>
@@ -125,7 +143,8 @@ cleaned_md_grant_loans |>
     count=n()
   ) |>
   filter(str_detect(Grantee, '^w|^W')) |>
-  arrange(Grantee)
+  arrange(Grantee)|>
+  mutate(name_unchanged = Grantee == grantee_clean)
 
 ```
 

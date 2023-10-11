@@ -1,0 +1,276 @@
+---
+title: "week7_recap"
+author: "Daniel Trielli"
+date: "2023-10-04"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+# Turn off scientific notation
+options(scipen=999)
+```
+
+## Loading the packages
+
+Run the codeblock below to load the packages we will need for this recap
+
+```{r}
+
+library(tidyverse)
+library(lubridate)
+library(janitor)
+
+```
+
+## Load Data
+
+Run the codeblock below to load the data.
+
+```{r}
+earthquakes <- read_csv('https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_month.csv')
+
+#Setting time column as datetime
+earthquakes <- earthquakes |> mutate(time = as_datetime(time))
+```
+
+#### Answer the questions below
+
+Most questions have a code block and a space for an answer below. Write the code you think is necessary and, in the answer space, write out what you did and what was the result.
+
+------------------------------------------------------------------------
+
+#### **Q1** Look at the earthquakes dataset. Finish the sentence below as if you were explaining the data to someone who had not seen it before but needs to know about it.
+
+**A1:** This data set contains information regarding seismic activity events that occurred within the past month around the world.
+
+------------------------------------------------------------------------
+
+#### **Q2** How many records there are there in this dataset? What do they mean and what useful information we can gather from it, looking at the columns?
+
+**A2:**
+
+There are 9,774 records at the time I loaded this data set. Each record represents an event that registered as seismic activity. It includes details about the event including time, location, magnitude, and type of activity. A note on "type": although the data set is named "earthquakes," it's important to note that other types of activity are included as well if they register as seismic activity -- including quarry blasts, explosions, etc.
+
+------------------------------------------------------------------------
+
+#### **Q3** How do I reorganize this data to see the ones that are the deepest first? What is the depth that shows up for the deepest one, and its magnitude?
+
+```{r}
+
+# making an assumption that larger and positive numbers represent greater depth, rather than negative numbers
+
+earthquakes %>%
+  arrange(desc(depth))
+
+```
+
+**A3:**
+
+Arrange the data set in descending order by depth.
+
+The deepest depth is 669.9820, and its magnitude was 4.20
+
+------------------------------------------------------------------------
+
+#### **Q4** I just want to see the earthquakes with a magnitude larger than 6. How do I do that? And how many are there that fit this criteria?
+
+```{r}
+earthquakes %>%
+  filter(mag > 6) %>%
+  filter(type == "earthquake")
+
+
+```
+
+**A4:**
+
+filter by mag > 6 and type == earthquake
+
+13 records meet that criteria
+
+------------------------------------------------------------------------
+
+#### **Q5** What about if I want to see earthquakes that have both a magnitude larger than 6 and a depth smaller than 20? How many are there in the data set that fit [both]{.underline} these criteria?
+
+```{r}
+
+earthquakes %>%
+  filter(mag > 6) %>%
+  filter(type == "earthquake") %>%
+  filter(depth < 20)
+
+
+
+```
+
+**A5:**
+
+filter by mag > 6, type == earthquake, AND depth < 20
+
+6 records meet that criteria
+
+------------------------------------------------------------------------
+
+#### **Q6** What about if I want to see earthquakes that either have a magnitude larger than 6 OR a depth smaller than 20? How many are there in the data set that fit [either]{.underline} these criteria?
+
+```{r}
+
+earthquakes %>%
+  filter(type == "earthquake") %>%
+  filter(mag > 6 | depth < 20)
+
+```
+
+**A6:**
+
+Filter by a) type == earthquake, and b) mag > 6 OR depth < 20
+
+7,199 records meet this criteria
+
+------------------------------------------------------------------------
+
+#### **Q7** I'm interested in finding earthquakes that took place in Alaska. Which column should I look at? How do I use it to find all the earthquakes in Alaska? How many earthquakes took place there?
+
+```{r}
+
+earthquakes %>%
+  filter(type == "earthquake") %>%
+  mutate(place = str_to_upper(place)) %>%
+  filter(str_detect(place, "ALASKA") | str_detect(place, " AK"))
+
+```
+
+**A7:**
+
+We can use string detect to search for Alaska or AK in the "place" column. First, let's make sure that upper/lowercase are all standardized in "place."
+
+3,377 earthquakes took place there
+
+------------------------------------------------------------------------
+
+#### **Q8** I notice that there is a column called 'type', that seems to have different kinds of tremors. What is the best way to find what are all the possible types of tremors, and counting how many of each there are in this data set? What are the first two most common types of tremors in this data set?
+
+```{r}
+
+earthquakes %>%
+  group_by(type) %>%
+  summarise(count = n()) %>%
+  arrange(desc(count))
+
+```
+
+**A8:**
+
+The top two types are "earthquake" and "quarry blast"
+
+------------------------------------------------------------------------
+
+#### **Q9** What is the average depth of the earthquake type in this data set? Is there anything that seems unusual or surprising in this finding?
+
+```{r}
+ earthquakes %>%
+  filter(type == "earthquake") %>%
+  summarise(avg_depth = mean(depth))
+
+```
+
+**A9:**
+
+Can't calculate it based on the original data set because there is at least one NA in "depth." Filter the dataset first to remove rows where depth is NA.
+
+------------------------------------------------------------------------
+
+#### **Q10** I'm interested, in the future, to see the hours in which earthquakes happen. How can I extract the hour from the time column?
+
+```{r}
+
+
+earthquakes <- earthquakes %>%
+  mutate(hour = hour(time))
+
+earthquakes
+
+```
+
+**A10:**
+
+We asked chatGPT for help with this one. The prompt Caley used was: "I am writing code in R using the tidyverse. I need to extract the hour from a column that shows both date and time, like this: 2023-10-11 16:14:28. Write me code to create a new column with the hour."
+
+It responded with this:
+
+# Load the tidyverse and lubridate packages if not already loaded
+library(tidyverse)
+library(lubridate)
+# Your data with a column named 'datetime' containing date and time information
+# Assuming your data frame is named 'df'
+df <- df %>%
+  mutate(datetime = ymd_hms(datetime),  # Parse the datetime string to a datetime object
+         hour = hour(datetime))
+         
+Our "time" column was already in datetime, so I was able to remove the datetime conversion part of what chatGPT
+
+------------------------------------------------------------------------
+
+#### **Q11** I want to make a note of all the records in this data set that I consider serious. For my purposes, I'm thinking that all tremors that have a magnitude that is larger than 3 are serious. How do I automatically create a new column showing whether an earthquake is serious or not?
+
+```{r}
+
+earthquakes <- earthquakes %>%
+  mutate(serious_quake = case_when(
+    mag >= 3 ~ "Serious",
+    .default = "Not Serious"
+  ))
+
+earthquakes
+
+
+```
+
+**A11:**
+
+I used mutate and case when to create a new column that classifies all records where mag >= 3 as "Serious," and set the default to "Not Serious" for all other records.
+
+------------------------------------------------------------------------
+
+#### **Q12** I have no idea how earthquakes work and I'm interested in seeing if there is a particular time of day in which serious earthquakes happen. How can I see that condensed in a table with all the hours in a day and all the serious earthquakes in each hour? What is the hour with fewer serious earthquakes and the one with the most serious earthquakes?
+
+```{r}
+
+earthquakes %>%
+  filter(type == "earthquake") %>%
+  filter(serious_quake == "Serious") %>%
+  group_by(hour) %>%
+  summarise(count = n()) %>%
+  arrange(desc(count))
+
+```
+
+**A12**:
+
+I filtered by type == earthquake and serious_quake == Serious
+grouped by hour and summarized to count the # of serious earthquakes per hour.
+
+2:00-2:59am has the most quakes, and 12:00am-12:59am has the fewest.
+
+------------------------------------------------------------------------
+
+#### **Q13** What's another question you are interested in and how would you ask it in R?
+
+```{r}
+
+earthquakes %>%
+  filter(type == "earthquake") %>%
+  group_by(locationSource) %>%
+  summarise(count = n()) %>%
+  arrange(desc(count))
+
+
+
+```
+
+*A*:
+
+Which network has most commonly been the original reporter of event locations? This is interesting because it could lead to follow-up questions that would teach us a lot about how/by who earthquakes are or aren't reported, and possibly let us look into regional disparities in earthquake technology. Are the networks at the top of the list there because they're just closest to the most quakes? Or do certain networks have more measuring equipment deployed in more locations? Or do they have better equipment that allows them to detect and report earthquake locations even sooner than networks that might be closer to the quake's location?
+
+The Alaska Earthquake Center is the most common

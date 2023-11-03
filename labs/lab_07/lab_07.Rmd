@@ -196,7 +196,7 @@ Do you get the same two zip codes for the highest and lowest as you did before? 
 
 Excluding 20889 again.
 
-Using max_per_1k, the two zip codes are the same. Using min_per_1k, 20860 jumps to the tip but I don't think that's truly reliable since the min pop is only 879 with a proportionally huge moe of 432, so its 2 calls result in the appearance of a huge overdose rate. Plus, 20877 is still right there in second place. 20707 remains the lowest.
+Using max_per_1k, the two zip codes are the same. Using min_per_1k, 20860 jumps to the top but I don't think that's truly reliable since the min pop is only 879 with a proportionally huge moe of 432, so its 2 calls result in the appearance of a huge overdose rate. Plus, 20877 is still right there in second place. 20707 remains the lowest. So, in both instances I feel more confident!
 
 
 ```{r}

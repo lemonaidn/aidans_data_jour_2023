@@ -1,0 +1,220 @@
+---
+title: "lab_07"
+author: "derek willis"
+date: "2023-03-28"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## You will need
+
+-   A Census API key
+
+## Load libraries and establish settings
+
+You'll need to load two packages for this: the tidyverse and tidycensus.
+
+**Task** load these two packages
+
+```{r}
+# Turn off scientific notation
+options(scipen=999)
+
+# Load the tidyverse.
+library(tidyverse)
+library(tidycensus)
+
+```
+
+## Setup Census API
+
+You'll need your Census API Key:
+
+**Task** set your API Key if you haven't already. You won't need to install or overwrite it.
+
+```{r echo=FALSE}
+
+census_api_key("d0dad2595c2515a7ebbaa971b4679f269f0812c3")
+
+```
+
+## Load and view ACS variables
+
+You'll also need to load the list of American Community Survey variables from the 2021 5-year estimates so you can identify the codes you need:
+
+**Task** load the variables from the 2021 5-year ACS (which is called "acs5") and save them to a dataframe
+
+```{r}
+
+acs5_geography
+
+```
+
+```{r}
+
+acs5_variables <- load_variables(2021, "acs5", cache = TRUE)
+
+```
+
+
+```{r}
+acs5_variables
+```
+
+
+## Answer questions
+
+**Q1** What is the Maryland jurisdiction with the lowest median age, according to the ACS 2021 5-year estimates? You will need to find the variable for median age first. 
+
+
+
+**A1** 
+
+Baltimore City with a medage of 35.7
+
+```{r}
+
+medage_df <- get_acs(geography = "county",
+              variables = c(medage = "B01002_001"),
+              state = "MD",
+              year = 2021) %>%
+      arrange(estimate)
+
+medage_df
+```
+
+**Q2** Which Maryland counties have a median age of at least 50? You can use the dataframe you just made to answer this, but you must write code to display only those counties with a median age of at least 50. 
+
+**A2** 
+
+Worcester and Talbot Counties
+
+```{r}
+
+medage_df %>%
+  filter(estimate >= 50)
+
+```
+
+**Q3** We're interested in knowing more about Montgomery County zip codes where overdose calls are coming from and the demographic characteristics they possess. In particular, we want to calculate a rate of calls per 1,000 population. To do this, you'll need to:
+
+1. Load the Montgomery County 911 overdose calls data.
+
+Done!
+
+2. Create a new dataframe with the total number of calls for each zip code.
+
+Done
+
+3. Find the ACS variable pertaining to the total 18 and up population (there are several choices here; you want the simplest one).
+
+B09021_001 - LIVING ARRANGEMENTS OF ADULTS 18 YEARS AND OVER BY AGE
+
+4. Get from the ACS data from all Maryland zip codes using that variable.
+
+Done. Wasn't able to execute the code while also specifying state, so I've obtained the data for the entire US. Non-MoCo Zips will be removed during the join
+
+5. Join the ACS data to the Montgomery County zip code totals dataframe and rename the estimate column to a meaningful name you've given the ACS variable.
+
+Done
+
+6. Add a column to the joined dataframe that calculates a rate of calls per 1,000 population.
+
+Which zip code has the highest rate of calls? Which has the lowest?
+
+Excluding 20889 from this since its population in this variable is supposedly 0... the highest rate is in 20877 and the lowest is in 20707
+
+**A3** 
+
+```{r}
+overdose_df <- read_csv("data/montgomery_2022_overdoses.csv") %>%
+  mutate(zip = as.character(zip))
+
+```
+
+```{r}
+zip_totals <- overdose_df %>%
+  group_by(zip) %>%
+  summarise(total_calls = n()) %>%
+  arrange(desc(total_calls))
+
+zip_totals
+```
+
+
+```{r}
+
+over18_df <- get_acs(geography = "zip code tabulation area",
+                     variables = c(over18 = "B09021_001"),
+                     year = 2021)
+
+over18_df
+
+```
+
+```{r}
+over18_overdoses <- overdose_df %>%
+  inner_join(over18_df, join_by("zip" == "GEOID"))
+
+over18_overdoses
+```
+
+
+```{r}
+
+per_1k_df <- over18_overdoses %>%
+  group_by(zip, estimate) %>%
+  summarise(total_calls = n()) %>%
+  mutate(calls_per_1k = total_calls / estimate * 1000) %>%
+  arrange(desc(calls_per_1k))
+  
+per_1k_df
+
+```
+
+
+
+**Q4** Using [CensusReporter.org](https://censusreporter.org/), examine the zip codes with the highest and lowest rates and compare and contrast their demographic profiles. Is there a story here?
+
+**A4**
+
+The highest (20877) is in the Gaithersburg area, were 15.4% of population is below the poverty line. The lowest (20707) is in the Laurel area, where 8.4% of population is below the poverty line. 20707's population is also better educated and has higher per capita and median household income. 20707 is predominately black, whereas 20877 is predominately Hispanic.
+
+Just comparing these two communities, it appears that overdoses are affecting poorer, Hispanic communities more than less poor, black communities. It would be interesting to see if these trends hold if we were to compare (and/or run regressions on) all of the zip codes and their demographics rather than just the top and bottom zips.
+
+
+**Q5** Go back to your joined dataframe from Q3 and add two more columns representing the minimum and maximum populations based on the estimate and margin of error, then calculate per capita rates for each.
+
+# Done
+
+Do you get the same two zip codes for the highest and lowest as you did before? Does that give you more or less confidence in your answers to Q3?
+
+**A5** 
+
+Excluding 20889 again.
+
+Using max_per_1k, the two zip codes are the same. Using min_per_1k, 20860 jumps to the tip but I don't think that's truly reliable since the min pop is only 879 with a proportionally huge moe of 432, so its 2 calls result in the appearance of a huge overdose rate. Plus, 20877 is still right there in second place. 20707 remains the lowest.
+
+
+```{r}
+
+moe_df <- over18_overdoses %>%
+  group_by(zip, estimate, moe) %>%
+  summarise(total_calls = n()) %>%
+  mutate(min_pop = estimate - moe) %>%
+  mutate(min_per_1k = total_calls / min_pop * 1000) %>%
+  mutate(max_pop = estimate + moe) %>%
+  mutate(max_per_1k = total_calls / max_pop * 1000) %>%
+  arrange(desc(min_per_1k))
+  # arrange(desc(max_per_1k))
+
+moe_df
+
+```
+
+
+
+

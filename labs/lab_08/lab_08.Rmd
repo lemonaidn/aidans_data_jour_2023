@@ -246,6 +246,6 @@ There's a horizontal funnel-like trend in the data -- there's HETEROSCEDASTICITY
 
 This makes it a little more difficult to tease out the relationship between HH Income and OD totals. That's interesting and fun from a statistical standpoint and means we should play a little more with the data -- for example, would we see homoscedasticity instead if we used OD calls per capita instead of raw totals?
 
-But we should write and article about heteroscedasticity, ever.
+But we should never write and article about heteroscedasticity, ever.
 
 Instead, I would write an article diving into the question of WHY there's so much variation in the total # of overdoses in less-wealthy zip codes. Use case studies to illustrate the issue -- interview people and do research specifically on 20608 which has a very low total # of overdoses, versus 20743 which has a MUCH higher # of ODs despite a pretty similar median hh income. If the difference isn't due to population size differences, what can we learn from the wild variation re: what factors do/don't affect OD numbers?

@@ -1,0 +1,40 @@
+---
+title: "JOUR772 Grad Assignment"
+author: "Aidan Hughes"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(tidycensus)
+library(janitor)
+```
+
+
+# Analysis 1:
+
+Use the "Maryland International Migration: 2001-2021" data set in combination with 2020 election results to see whether regions experiencing higher rates of migration are positively correlated with a vote swing towards Donald Trump in 2020
+
+## Sources:
+
+- Migration data: https://opendata.maryland.gov/Demographic/Maryland-International-Migration-2001-2021/hq27-cfrc
+
+- Election data: 
+
+- Population data: 2019 ACS (tidycensus)
+
+```{r}
+# Load the Maryland Migration data
+
+migration_df <- read_csv("data/Maryland_International_Migration__2001-2021.csv")
+
+head(migration_df)
+
+```
+
+

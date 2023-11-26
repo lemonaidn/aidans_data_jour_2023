@@ -24,9 +24,9 @@ Use the "Maryland International Migration: 2001-2021" data set in combination wi
 
 - Migration data: https://opendata.maryland.gov/Demographic/Maryland-International-Migration-2001-2021/hq27-cfrc
 
-- Election data: 
+- 2020 Election results: https://elections.maryland.gov/elections/2020/election_data/index.html
 
-- Population data: 2019 ACS (tidycensus)
+- Population data:
 
 ```{r}
 # Load the Maryland Migration data
@@ -36,5 +36,57 @@ migration_df <- read_csv("data/Maryland_International_Migration__2001-2021.csv")
 head(migration_df)
 
 ```
+
+```{r}
+# calculate avg migration for each county between 2013 and election day 2016, and do the same for 2017 through election day 2020
+```
+
+
+
+```{r}
+# load the df that links county indicator numbers to the county's name
+
+md_county_indicators <- read_csv("data/md_county_indicators.csv") %>%
+  clean_names()
+
+# county indicators 0-9 are in format "0, 1, 2, etc." but need to be in format "00, 01, 02, etc." to join on the election data
+
+# convert county_indicator col to chr type
+md_county_indicators <- md_county_indicators %>%
+  mutate(county_indicator = as.character(county_indicator))
+
+# update the values for 0-9
+updated_indicators <- c("00", "01", "02", "03", "04", "05", "06", "07", "08", "09")
+
+md_county_indicators$county_indicator[0:10] = updated_indicators
+
+md_county_indicators
+```
+
+
+
+```{r}
+# Load 2020 election data
+
+md_2020_county_election_results <- read_delim("data/md_2020_county_election_results.txt") %>%
+  clean_names() 
+
+# join the county indicators to the election data so we have county names
+
+md_2020_county_election_results <- md_2020_county_election_results %>%
+  left_join(md_county_indicators, join_by(county == county_indicator))
+
+md_2020_county_election_results
+
+```
+
+```{r}
+# join the 2020 election results with the migration data
+
+md_2020_w_migration <- md_2020_county_election_results %>%
+  left_join()
+
+```
+
 
 

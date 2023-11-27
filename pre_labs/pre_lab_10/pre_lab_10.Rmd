@@ -327,7 +327,7 @@ But there's a problem. The column in our population data that has county names i
 
 **Answer**
 
-It displays md_county_notices (if we commented thhat line out it would display md_county_population instead)
+It displays md_county_notices, which is a df with the number of notices in each county on each date (if we commented that line out it would display md_county_population instead, which is a df with population data for each county from the 2021 ACS)
 
 ```{r}
 md_county_population
@@ -345,7 +345,7 @@ Let's clean the population table. We're going to rename the "NAME" column to "co
 
 **Answer**
 
-", Maryland" has been removed from the county col, title case has been applied, and extra whitespace has been trimmed
+", Maryland" has been removed from the county col, title case has been applied, and extra white space has been trimmed
 
 ```{r}
 md_county_population <- md_county_population |>
@@ -445,7 +445,8 @@ So let's change the color scale to a "log" scale, which will help us see those d
 
 **Answer**
 
-The colors of some of the counties changed. This is a positive change because the prior scale included levels that no county fell within
+The colors of some of the counties changed. This is a positive change because the prior scale included levels that no county fell within, making it a less-effective visualization
+
 ```{r}
 ggplot() +
   geom_sf(data=md_pop_with_foreclosures, aes(fill=rate)) +

@@ -564,6 +564,8 @@ I'm surprised that the correlation wasn't a little bit stronger based on the app
 
 This is no longer election related, but from the data I collected, it seemed like ODs have been rising drastically year-by-year in most counties in Maryland. Let's group the full od data by year and plot it
 
+# Ran out of time on this -- I didn't need to do grouping by and summarizing to perform the analyses I did because summing row-wise served a similar function for the way my data was structured that grouping/summarizing would have if the data had been structured differently. My fault for not remebering/making sure I was incorporating some kind of analysis that required a group by and summarize, though.
+
 ```{r}
 ods_13_16 <- od_df %>%
   select(1:5) %>%
@@ -578,12 +580,7 @@ ods_13_16
 ods_17_20 <- od_df %>%
   select(1, 6:9) %>%
   rowwise() %>%
-  mutate(avg_ods_17_to_20 = sum(c_across(-1), na.rm = TRUE)/ 4) %>%
-  pivot_longer(cols = !Year,
-               names_to = "county",
-               values_to = "migration")
-
-ods_17_20
+  mutate(avg_ods_17_to_20 = sum(c_across(-1), na.rm = TRUE)/ 4)
 ```
 
 ```{r}

@@ -16,6 +16,25 @@ library(janitor)
 library(stringi)
 ```
 
+# Summary of data
+
+I've chosen to work with the Maryland International Migration data set from the open data portal. This data set covers 2001-2021 and includes county-level "foreign-born international migration, net movement to/ from Puerto Rico, net Armed Forces movement and native emigration." The source is described as being "from the Population Division, U.S. Census Bureau, March 2022" and was provided on the portal by the Maryland Department of Planning. I've put a call in to the DoP to get more information on the Census data they apparently used to create this aggregate data set so I can replicate and/or modify their calculations (eg I would probably take troop movement out of the mix for the purposes of this analysis), but I wasn't able to reach anybody before the deadline for this assignment.
+
+I've combined that data set with three other county-level data sets pertaining to election results in MD, population/racial data from the ACS, and overdose data from the state department of health.
+
+The project I pursued was testing whether immigration, declines in the proportion of the population that is white-only, and/or rates of certain types of "deaths of despair" were correlated with higher vote shares for Trump. These three variables (and/or adjacent ideas) are all narratives that have been floated by pundits, and sometimes by scholars or other data journalists, as themes that might help explain Trump's appeal. As a result, I was interested in testing those narratives specifically on Maryland's election results. Due to time constraints, I was only able to finish testing those narratives against 2020's election results before this assignment's deadline. Later on, I hope to see if my findings are the same using 2016 election results, too.
+
+The original migration data was originally formatted so each row represents a year, and each column represents a county's (or statewide) net international migration for that year. While reading in the data, I decided to pivot the dataframe so columns were counties and columns were years. This made it easier to work with and join with the rest of the data I was working with.
+
+The three story ideas I would pitch are:
+
+- There's a narrative that part of Trump's appeal is a response/backlash to large amounts of immigration. However, areas experiencing higher levels of migration voted for Trump at LOWER rates. Is this simply an effect of higher rates of immigrants settling in urban/suburban areas that already lean away from Trump? Or -- more interestingly -- is there an observable effect where greater exposure to immigrants actually decreases the likelihood that someone's voting behavior will reflect xenophobic attitudes? I would like to interview immigration and refugee settlement organizations to better understand how/where immigrants settle, why they settle there, and what input they have on community reactions to and integration with imigrant communities.
+
+- Counties experiencing larger declines in the proportion of their population that is white-only also voted against Trump at larger rates. Is this an effect of "white flight" or just changing demographics in an otherwise stable population? I'd like to find out if white citizens specifically are leaving the counties with the largest declines -- if so, where are they moving to? And are those locations seeing corresponding increases in their Republican/Trump vote shares?
+
+- Baltimore was a HUGE outlier in my overdose analysis -- why is that? Is it just because it's the only location in my data that isolates a standalone urban geography, and urban locations in general have similar OD rates? Or does Baltimore's rate far surpass even other urban locations in MD? This obviously isn't election-related, but it stands out to me as the most interesting finding in an analysis that otherwise didn't have the most interesting or strongest findings, statistically.
+
+
 # Analysis 1:
 
 Use the "Maryland International Migration: 2001-2021" data set in combination with 2020 election results to see whether regions experiencing higher rates of migration are positively correlated with a vote swing towards Donald Trump in 2020
@@ -178,7 +197,7 @@ ggplot(full_2020_df, aes(x = migration_per_capita, y = trump_vote_share)) +
   geom_point() +
   geom_smooth(method = "loess", se = FALSE, color = "red") +  # Add a smooth line
   labs(
-    title = "Counties experiencing higher immigration less likely to vote for Trump",
+    title = "Counties experiencing more migration less likely to vote for Trump",
     x = "Annual international migration per capita (2017-2020 average)",
     y = "Trump's 2020 vote share (by county)"
   ) +
@@ -307,7 +326,7 @@ print(cor_test_white_pop_trump_votes)
 
 ```
 
-Generally, counties that experienced LARGER declines in the proportion of their population that is white, voted for Trump at SMALLER rates. Let's visualize it:
+Generally, counties that experienced LARGER declines in the proportion of their population that is white, voted for Trump at SMALLER rates. There's a solid correlation here and an awesome p-value. Let's visualize it:
 
 ```{r}
 # Scatterplot with smooth line
@@ -316,9 +335,9 @@ ggplot(full_2020_df, aes(x = white_only_per_cap_percent_change_vs_2017, y = trum
   geom_smooth(method = "loess", se = FALSE, color = "red") +  # Add a smooth line
   scale_x_reverse() +
   labs(
-    title = "Counties with shrinking White populations less likely to vote for Trump in 2020",
+    title = "Counties with shrinking white populations less likely to vote for Trump",
     x = "Decline in white citizens per capita 2017-2020 (%)",
-    y = "Trump's vote share (by county)"
+    y = "Trump's 2020 vote share (by county)"
   ) +
   theme(
     axis.title.x = element_text(size = 12),  # Adjust the size if needed
@@ -529,9 +548,9 @@ ggplot(full_2020_df_no_balt_city, aes(x = ods_per_cap_2020, y = trump_vote_share
   geom_point() +
   geom_smooth(method = "loess", se = FALSE, color = "red") +  # Add a smooth line
   labs(
-    title = "OD rates had minor ties to Trump's 2020 Performance in MD",
+    title = "OD rates only had small ties to Trump's vote share",
     x = "ODs per capita (2017-2020 averages)",
-    y = "Trump's vote share (by county)"
+    y = "Trump's 2020 vote share (by county)"
   ) +
   theme(
     axis.title.x = element_text(size = 12),  # Adjust the size if needed
@@ -540,6 +559,34 @@ ggplot(full_2020_df_no_balt_city, aes(x = ods_per_cap_2020, y = trump_vote_share
 
 ```
 
-I'm surprised that the correlation wasn't a little bit stronger based on the appearance of the scatterplot. But there is only a small positive correlation between average ods per capita from 2017-2020 and Trump's vote share in MD counties in 2020. The P value also barely passed muster.
+I'm surprised that the correlation wasn't a little bit stronger based on the appearance of the scatterplot. But there is only a small positive correlation between average ods per capita from 2017-2020 and Trump's vote share in MD counties in 2020. The p-value also barely passed muster.
 
+
+This is no longer election related, but from the data I collected, it seemed like ODs have been rising drastically year-by-year in most counties in Maryland. Let's group the full od data by year and plot it
+
+```{r}
+ods_13_16 <- od_df %>%
+  select(1:5) %>%
+  rowwise() %>%
+  mutate(avg_ods_13_to_16 = sum(c_across(-1), na.rm = TRUE) / 4)
+
+ods_13_16
+
+```
+
+```{r}
+ods_17_20 <- od_df %>%
+  select(1, 6:9) %>%
+  rowwise() %>%
+  mutate(avg_ods_17_to_20 = sum(c_across(-1), na.rm = TRUE)/ 4) %>%
+  pivot_longer(cols = !Year,
+               names_to = "county",
+               values_to = "migration")
+
+ods_17_20
+```
+
+```{r}
+ods_13_20 <- rbind(ods_13_16, ods_17_20)
+```
 

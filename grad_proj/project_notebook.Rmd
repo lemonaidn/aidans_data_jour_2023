@@ -13,6 +13,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(tidycensus)
 library(janitor)
+library(stringi)
 ```
 
 
@@ -25,9 +26,12 @@ Use the "Maryland International Migration: 2001-2021" data set in combination wi
 - Migration data: https://opendata.maryland.gov/Demographic/Maryland-International-Migration-2001-2021/hq27-cfrc
 
 - 2020 Election results: https://docs.google.com/spreadsheets/d/1oSzr7O14vzRxeethgAnugADhgHhZG4xX1DOh1ElmCNc/edit?usp=sharing
-  (I manually copied and pasted this data from https://elections.maryland.gov/elections/2020/results/general/gen_detail_results_p2020_4_BOT001-.html)
+I manually copied and pasted this data into a google sheet and exported to csv, originally from: https://elections.maryland.gov/elections/2020/results/general/gen_detail_results_p2020_4_BOT001-.html)
 
 - Population data: 2016 and 2020 ACS data
+
+- OD data: extracted using tabula from: https://health.maryland.gov/vsa/Documents/Overdose/Annual_2020_Drug_Intox_Report.pdf
+(Page 61 in pdf file, labeled as page 58 in the report.) Includes alcohol and drug related deaths. After extacting with tabula, I used google sheets to move/align the county/subdivision names with the rest of the data before exporting to csv. No other changes were made outside of R.
 
 ```{r}
 # Load the Maryland Migration data
@@ -43,27 +47,12 @@ migration_df_transformed <- migration_df %>%
 ```
 
 ```{r}
-#Make a df showing total migration from 2013-2016 per county
-
-migration_13_16 <- migration_df_transformed %>%
-  filter(Year >= 2013 & Year <= 2016) %>%
-  group_by(county) %>%
-  summarize(total_migration = sum(migration)) %>%
-  mutate(county = str_replace(county, " County", ""))
-
-#ChatGPT helped with this line
-migration_13_16$county[migration_13_16$county == "MARYLAND"] <- "State Level"
-
-migration_13_16
-```
-
-```{r}
 #Make a df showing total migration from 2017-2020 per county
 
 migration_17_20 <- migration_df_transformed %>%
   filter(Year >= 2017 & Year <= 2020) %>%
   group_by(county) %>%
-  summarize(total_migration = sum(migration)) %>%
+  summarize(avg_migration = sum(migration) / 4) %>%
   mutate(county = str_replace(county, " County", ""))
 
 #ChatGPT helped with this line
@@ -76,7 +65,7 @@ migration_17_20
 ```{r}
 # Load 2020 election data
 
-md_2020_county_election_results <- read_delim("data/md_2020_county_election_results.csv") %>%
+md_2020_county_election_results <- read_csv("data/md_2020_county_election_results.csv") %>%
   clean_names() %>%
   #chatGPT helped me with the next four lines
   rowwise() %>%
@@ -115,8 +104,7 @@ population_2020 <- get_acs(geography = "county",
               year = 2020) %>%
   mutate("NAME" = gsub(", Maryland", "", NAME)) %>%
       arrange(estimate) %>%
-  select(GEOID, NAME, estimate) %>%
-  mutate()
+  select(GEOID, NAME, estimate)
 
 new_row <- population_2020 %>%
   summarize(GEOID = "24", NAME = "State Level", estimate = sum(estimate))
@@ -144,7 +132,8 @@ full_2020_df
 
 full_2020_df <- full_2020_df %>%
   mutate(trump_vote_share = donald_j_trump_and_michael_pence_republican / total_county_votes * 100) %>%
-  mutate(migration_per_capita = total_migration / estimate * 10000)
+  mutate(migration_per_capita = avg_migration / estimate * 10000) %>%
+  filter(county != "State Level")
 
 full_2020_df %>%
   select(trump_vote_share, migration_per_capita)
@@ -163,7 +152,7 @@ There's heteroscedasticity. My data also isn't normally distributed:
 ```{r}
 # Create a histogram
 ggplot(full_2020_df, aes(x = migration_per_capita)) +
-  geom_histogram(binwidth = 20, fill = "skyblue", color = "black") +
+  geom_histogram(binwidth = 5, fill = "skyblue", color = "black") +
   labs(title = "Distribution of Migration Per Capita",
        x = "Migration Per Capita",
        y = "Frequency")
@@ -186,10 +175,346 @@ print(cor_test_result_kendall)
 
 ```{r}
 # Scatterplot with smooth line
-ggplot(full_2020_df, aes(x = trump_vote_share, y = migration_per_capita)) +
+ggplot(full_2020_df, aes(x = migration_per_capita, y = trump_vote_share)) +
   geom_point() +
-  geom_smooth(method = "loess", se = FALSE, color = "blue") +  # Add a smooth line
+  geom_smooth(method = "loess", se = FALSE, color = "red") +  # Add a smooth line
   labs(title = paste("Kendall's Tau =", round(cor_test_result_kendall$estimate, 3), "\n p-value =", cor_test_result_kendall$p.value))
 ```
 
-There's a moderate negative correlation between a county's per capita migration numbers and Trump's vote share in that county. There's also a strong P value. In other words, there's a halfway decent chance that a county experiencing higher levels of immigration is LESS likely to vote for Trump (this is only correlative,  can't determine causation here).
+There's a moderately negative correlation between a county's per capita migration numbers and Trump's vote share in that county. There's also a strong P value. In other words, we can say with a good amount of certainty that a county experiencing higher levels of immigration is somewhat LESS likely to vote for Trump.
+
+
+# Analysis 2:
+
+Check whether zips or state legislative districts that experienced a decline in the white population between 2017-2020 were more likely to vote for Trump, since that has been another narrative/possible explanation for his appeal to some voters (racial resentment toward a demographically changing nation/community).
+
+NOTE: this is a minor adjustment from my original plan to measure change in white pop from 2010-2020. I've made the change for two reasons: 1) conceptual clarity: let's keep it to the years between presidential elections 2) since Kendall's Tau allowed me to perform reliable statistical tests with small sample sizes in Analysis 1, we're going to keep Analysis 2 and 3 at the county level so we're using the same geography across all three analyses.
+
+```{r}
+white_and_total_pop_2017 <- get_acs(geography = "county",
+              variables = c("B01003_001", "B02001_002"),
+              state = "MD",
+              year = 2017)
+
+white_and_total_pop_2017
+```
+
+```{r}
+white_and_total_pop_2017_transformed <- white_and_total_pop_2017 %>%
+  select(-moe) %>%
+  pivot_wider(
+    names_from = variable,
+    values_from = estimate
+    ) %>%
+  rename(total_pop_2017 = B01003_001, white_only_pop_2017 = B02001_002)
+
+full_pop_2017 <- white_and_total_pop_2017_transformed %>%
+  mutate(white_only_per_capita_2017 = white_only_pop_2017 / total_pop_2017 * 10000) %>%
+  mutate("NAME" = gsub(", Maryland", "", NAME)) %>%
+      arrange(white_only_per_capita_2017) %>%
+  mutate(NAME = str_replace(NAME, " County", "")) %>%
+  mutate(NAME = str_replace(NAME, "city", "City"))
+
+full_pop_2017
+```
+
+
+
+```{r}
+
+white_and_total_pop_2020 <- get_acs(geography = "county",
+              variables = c("B01003_001", "B02001_002"),
+              state = "MD",
+              year = 2020)
+
+white_and_total_pop_2020
+
+```
+
+
+
+```{r}
+white_and_total_pop_2020_transformed <- white_and_total_pop_2020 %>%
+  select(-moe) %>%
+  pivot_wider(
+    names_from = variable,
+    values_from = estimate
+    ) %>%
+  rename(total_pop_2020 = B01003_001, white_only_pop_2020 = B02001_002)
+
+full_pop_2020 <- white_and_total_pop_2020_transformed %>%
+  mutate(white_only_per_capita_2020 = white_only_pop_2020 / total_pop_2020 * 10000) %>%
+  mutate("NAME" = gsub(", Maryland", "", NAME)) %>%
+      arrange(white_only_per_capita_2020) %>%
+  mutate(NAME = str_replace(NAME, " County", "")) %>%
+  mutate(NAME = str_replace(NAME, "city", "City"))
+
+full_pop_2020
+```
+
+Add a col to the 2020 data that calculates % change in the white-only population in each county between 2017-2020
+
+```{r}
+
+full_pop_17_20 <- full_pop_2017 %>%
+  inner_join(full_pop_2020) %>%
+  mutate(white_only_per_cap_percent_change_vs_2017 = (white_only_per_capita_2020 - white_only_per_capita_2017) / white_only_per_capita_2017 * 100) %>%
+  select(GEOID, NAME, white_only_per_cap_percent_change_vs_2017)
+
+full_pop_17_20
+
+```
+
+```{r}
+
+full_2020_df <- full_2020_df %>%
+  inner_join(full_pop_17_20)
+
+full_2020_df
+
+```
+
+```{r}
+full_2020_df$county
+```
+
+
+```{r}
+
+ggplot(full_2020_df, aes(x = white_only_per_cap_percent_change_vs_2017, y = trump_vote_share)) +
+  geom_point() +
+  # chatGPT told me how to do this next line to invert the axis
+  scale_x_reverse()
+
+```
+
+Same data issues as before so we're going to use the the same statistical tests
+
+```{r}
+
+# Kendall's Tau correlation test
+cor_test_white_pop_trump_votes <- cor.test(full_2020_df$white_only_per_cap_percent_change_vs_2017, full_2020_df$trump_vote_share, method = "kendall")
+
+# Print the result
+print(cor_test_white_pop_trump_votes)
+
+```
+
+Generally, counties that experienced LARGER declines in the proportion of their population that is white, voted for Trump at SMALLER rates. Let's visualize it:
+
+```{r}
+# Scatterplot with smooth line
+ggplot(full_2020_df, aes(x = white_only_per_cap_percent_change_vs_2017, y = trump_vote_share)) +
+  geom_point() +
+  geom_smooth(method = "loess", se = FALSE, color = "red") +  # Add a smooth line
+  scale_x_reverse() +
+  labs(title = paste("Kendall's Tau =", round(cor_test_white_pop_trump_votes$estimate, 3), "\n p-value =", cor_test_white_pop_trump_votes$p.value))
+```
+
+# Analysis 3:
+
+Similar analysis but using overdose rates as the independent variable instead of migration or the decrease of a region's white population. High rates of deaths of despair have been linked to higher vote shares for Trump in the past. For example: https://www.nbcnews.com/health/health-news/where-despair-deaths-were-higher-voters-chose-trump-n906631
+
+```{r}
+
+od_df <- read_csv("data/od_deaths_per_year.csv")
+
+od_df
+
+```
+
+```{r}
+#chatGPT helped me with these cleaning steps
+
+# Clean up the values
+od_df$SUBDIVISION <- gsub("\\.{3,}", "", od_df$SUBDIVISION)   # Remove extra periods
+od_df$SUBDIVISION <- trimws(od_df$SUBDIVISION)                # Remove extra whitespaces
+od_df$SUBDIVISION <- tolower(od_df$SUBDIVISION)               # Convert to lowercase
+od_df$SUBDIVISION <- tools::toTitleCase(od_df$SUBDIVISION)    # Capitalize first letter of each word
+od_df$SUBDIVISION <- gsub(" County", "", od_df$SUBDIVISION)   # Remove " County"
+od_df$SUBDIVISION <- gsub("St Mary’s", "St. Mary's", od_df$SUBDIVISION)  # Add period after "St"
+
+# Print the cleaned values
+print(od_df$SUBDIVISION)
+
+```
+
+```{r}
+od_df <- od_df %>%
+  filter(SUBDIVISION != "Maryland" & SUBDIVISION != "Northwest Area" & SUBDIVISION != "Baltimore Metro Area" & SUBDIVISION != "National Capital Area" & SUBDIVISION != "Southern Area" & SUBDIVISION != "Eastern Shore Area") %>%
+  rename(county = SUBDIVISION)
+
+  #chatGPT helped with the next line
+  names(od_df)[2:9] <- paste0("ods_", names(od_df)[2:9])
+
+od_df
+```
+
+```{r}
+ods_13_16 <- od_df %>%
+  select(1:5) %>%
+  rowwise() %>%
+  mutate(avg_ods_13_to_16 = sum(c_across(-1), na.rm = TRUE) / 4)
+
+ods_13_16
+```
+
+```{r}
+ods_17_20 <- od_df %>%
+  select(1, 6:9) %>%
+  rowwise() %>%
+  mutate(avg_ods_17_to_20 = sum(c_across(-1), na.rm = TRUE)/ 4)
+
+ods_17_20
+```
+
+```{r}
+total_pop_2020_df <- full_pop_2020 %>%
+  select(GEOID, NAME, total_pop_2020)
+
+total_pop_2020_df
+```
+
+```{r}
+unmatched_ods_17_20 <- ods_17_20 %>%
+  anti_join(total_pop_2020_df, join_by("county" == "NAME"))
+
+unmatched_ods_17_20
+```
+
+```{r}
+ods_17_20 %>%
+  filter(county == "Prince George’s")
+```
+
+```{r}
+total_pop_2020_df %>%
+  filter(NAME == "Prince George’s")
+```
+
+```{r}
+value <- total_pop_2020_df[1, 2]
+
+value
+```
+
+I don't see or understand the difference between these values. Do a full join and try to spot the differences again
+
+```{r}
+joined_ods_17_20 <- ods_17_20 %>%
+  full_join(total_pop_2020_df, join_by("county" == "NAME")) %>%
+  arrange(county)
+
+joined_ods_17_20
+```
+Are you kidding me... the problem is that they use different types of apostrophes.
+
+```{r}
+encodings <- sapply(total_pop_2020_df, function(NAME) stri_enc_mark(NAME))
+
+print(encodings)
+```
+```{r}
+encodings <- sapply(ods_17_20, function(county) stri_enc_mark(county))
+
+print(encodings)
+```
+Some of the encodings here are utf-8 instead of ASCII
+
+Updating the encoding in ods_17_20 to deal with this
+
+```{r}
+ods_17_20$county <- stri_trans_general(ods_17_20$county, "ASCII")
+```
+
+```{r}
+encodings <- sapply(ods_17_20, function(county) stri_enc_mark(county))
+
+print(encodings)
+```
+
+
+Let's try again.
+
+```{r}
+joined_ods_17_20 <- ods_17_20 %>%
+  inner_join(total_pop_2020_df, join_by("county" == "NAME")) %>%
+  arrange(county)
+
+joined_ods_17_20
+```
+
+Thank god and good riddance.
+
+Calculate per capita ods
+
+```{r}
+joined_ods_17_20 <- joined_ods_17_20 %>%
+  mutate(ods_per_cap_2020 = avg_ods_17_to_20/total_pop_2020 * 10000)
+
+joined_ods_17_20
+```
+
+join with the election data
+
+```{r}
+
+joined_ods_17_20 <- joined_ods_17_20 %>%
+  select(county, GEOID, ods_per_cap_2020)
+
+full_2020_df <- full_2020_df %>%
+  inner_join(joined_ods_17_20)
+
+full_2020_df
+
+```
+
+```{r}
+ggplot(full_2020_df, aes(x = ods_per_cap_2020, y = trump_vote_share)) +
+  geom_point()
+```
+
+```{r}
+# Kendall's Tau correlation test
+cor_test_ods_trump_votes <- cor.test(full_2020_df$ods_per_cap_2020, full_2020_df$trump_vote_share, method = "kendall")
+
+# Print the result
+print(cor_test_ods_trump_votes)
+```
+
+```{r}
+# Scatterplot with smooth line
+ggplot(full_2020_df, aes(x = ods_per_cap_2020, y = trump_vote_share)) +
+  geom_point() +
+  geom_smooth(method = "loess", se = FALSE, color = "red") +  # Add a smooth line
+  labs(title = paste("Kendall's Tau =", round(cor_test_ods_trump_votes$estimate, 3), "\n p-value =", cor_test_ods_trump_votes$p.value))
+```
+
+Baltimore City appears to be a major outlier in this data. let's see what happens if we remove it:
+
+```{r}
+full_2020_df_no_balt_city <- full_2020_df %>%
+  filter(county != "Baltimore City")
+```
+
+Rerun the above steps and statistical tests
+
+```{r}
+# Kendall's Tau correlation test
+cor_test_ods_trump_votes <- cor.test(full_2020_df_no_balt_city$ods_per_cap_2020, full_2020_df_no_balt_city$trump_vote_share, method = "kendall")
+
+# Print the result
+print(cor_test_white_pop_trump_votes)
+```
+
+```{r}
+# Scatterplot with smooth line
+ggplot(full_2020_df_no_balt_city, aes(x = ods_per_cap_2020, y = trump_vote_share)) +
+  geom_point() +
+  geom_smooth(method = "loess", se = FALSE, color = "red") +  # Add a smooth line
+  labs(title = paste("Kendall's Tau =", round(cor_test_ods_trump_votes$estimate, 3), "\n p-value =", cor_test_ods_trump_votes$p.value))
+```
+
+I'm surprised that the correlation coefficient wasn't stronger here based on the appearance of the scatterplot. But there is only a small positive correlation between average ods per capita from 2017-2020 and Trump's vote share in MD counties in 2020. The P value also barely passed muster.
+
+

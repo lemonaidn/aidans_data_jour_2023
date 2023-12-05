@@ -16,7 +16,6 @@ library(janitor)
 library(stringi)
 ```
 
-
 # Analysis 1:
 
 Use the "Maryland International Migration: 2001-2021" data set in combination with 2020 election results to see whether regions experiencing higher rates of migration are positively correlated with a vote swing towards Donald Trump in 2020
@@ -28,7 +27,7 @@ Use the "Maryland International Migration: 2001-2021" data set in combination wi
 - 2020 Election results: https://docs.google.com/spreadsheets/d/1oSzr7O14vzRxeethgAnugADhgHhZG4xX1DOh1ElmCNc/edit?usp=sharing
 I manually copied and pasted this data into a google sheet and exported to csv, originally from: https://elections.maryland.gov/elections/2020/results/general/gen_detail_results_p2020_4_BOT001-.html)
 
-- Population data: 2016 and 2020 ACS data
+- Population data: ACS data accessed via tidyverse
 
 - OD data: extracted using tabula from: https://health.maryland.gov/vsa/Documents/Overdose/Annual_2020_Drug_Intox_Report.pdf
 (Page 61 in pdf file, labeled as page 58 in the report.) Includes alcohol and drug related deaths. After extacting with tabula, I used google sheets to move/align the county/subdivision names with the rest of the data before exporting to csv. No other changes were made outside of R.
@@ -178,7 +177,15 @@ print(cor_test_result_kendall)
 ggplot(full_2020_df, aes(x = migration_per_capita, y = trump_vote_share)) +
   geom_point() +
   geom_smooth(method = "loess", se = FALSE, color = "red") +  # Add a smooth line
-  labs(title = paste("Kendall's Tau =", round(cor_test_result_kendall$estimate, 3), "\n p-value =", cor_test_result_kendall$p.value))
+  labs(
+    title = "Counties experiencing higher immigration less likely to vote for Trump",
+    x = "Annual international migration per capita (2017-2020 average)",
+    y = "Trump's 2020 vote share (by county)"
+  ) +
+  theme(
+    axis.title.x = element_text(size = 12),  # Adjust the size if needed
+    axis.title.y = element_text(size = 12)   # Adjust the size if needed
+  )
 ```
 
 There's a moderately negative correlation between a county's per capita migration numbers and Trump's vote share in that county. There's also a strong P value. In other words, we can say with a good amount of certainty that a county experiencing higher levels of immigration is somewhat LESS likely to vote for Trump.
@@ -308,7 +315,16 @@ ggplot(full_2020_df, aes(x = white_only_per_cap_percent_change_vs_2017, y = trum
   geom_point() +
   geom_smooth(method = "loess", se = FALSE, color = "red") +  # Add a smooth line
   scale_x_reverse() +
-  labs(title = paste("Kendall's Tau =", round(cor_test_white_pop_trump_votes$estimate, 3), "\n p-value =", cor_test_white_pop_trump_votes$p.value))
+  labs(
+    title = "Counties with shrinking White populations less likely to vote for Trump in 2020",
+    x = "Decline in white citizens per capita 2017-2020 (%)",
+    y = "Trump's vote share (by county)"
+  ) +
+  theme(
+    axis.title.x = element_text(size = 12),  # Adjust the size if needed
+    axis.title.y = element_text(size = 12)   # Adjust the size if needed
+  )
+
 ```
 
 # Analysis 3:
@@ -490,7 +506,7 @@ ggplot(full_2020_df, aes(x = ods_per_cap_2020, y = trump_vote_share)) +
   labs(title = paste("Kendall's Tau =", round(cor_test_ods_trump_votes$estimate, 3), "\n p-value =", cor_test_ods_trump_votes$p.value))
 ```
 
-Baltimore City appears to be a major outlier in this data. let's see what happens if we remove it:
+Baltimore City appears to be a massive outlier in this data due to the horrific rate of ODs there eclipsing rates anywhere else in the state. let's see what happens if we remove it:
 
 ```{r}
 full_2020_df_no_balt_city <- full_2020_df %>%
@@ -512,9 +528,18 @@ print(cor_test_white_pop_trump_votes)
 ggplot(full_2020_df_no_balt_city, aes(x = ods_per_cap_2020, y = trump_vote_share)) +
   geom_point() +
   geom_smooth(method = "loess", se = FALSE, color = "red") +  # Add a smooth line
-  labs(title = paste("Kendall's Tau =", round(cor_test_ods_trump_votes$estimate, 3), "\n p-value =", cor_test_ods_trump_votes$p.value))
+  labs(
+    title = "OD rates had minor ties to Trump's 2020 Performance in MD",
+    x = "ODs per capita (2017-2020 averages)",
+    y = "Trump's vote share (by county)"
+  ) +
+  theme(
+    axis.title.x = element_text(size = 12),  # Adjust the size if needed
+    axis.title.y = element_text(size = 12)   # Adjust the size if needed
+  )
+
 ```
 
-I'm surprised that the correlation coefficient wasn't stronger here based on the appearance of the scatterplot. But there is only a small positive correlation between average ods per capita from 2017-2020 and Trump's vote share in MD counties in 2020. The P value also barely passed muster.
+I'm surprised that the correlation wasn't a little bit stronger based on the appearance of the scatterplot. But there is only a small positive correlation between average ods per capita from 2017-2020 and Trump's vote share in MD counties in 2020. The P value also barely passed muster.
 
 

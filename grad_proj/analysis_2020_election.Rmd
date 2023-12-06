@@ -16,30 +16,35 @@ library(janitor)
 library(stringi)
 ```
 
-# Summary of data
+# Summary of project
 
 I've chosen to work with the Maryland International Migration data set from the open data portal. This data set covers 2001-2021 and includes county-level "foreign-born international migration, net movement to/ from Puerto Rico, net Armed Forces movement and native emigration." The source is described as being "from the Population Division, U.S. Census Bureau, March 2022" and was provided on the portal by the Maryland Department of Planning. I've put a call in to the DoP to get more information on the Census data they apparently used to create this aggregate data set so I can replicate and/or modify their calculations (eg I would probably take troop movement out of the mix for the purposes of this analysis), but I wasn't able to reach anybody before the deadline for this assignment.
 
 I've combined that data set with three other county-level data sets pertaining to election results in MD, population/racial data from the ACS, and overdose data from the state department of health.
 
-The project I pursued was testing whether immigration, declines in the proportion of the population that is white-only, and/or rates of certain types of "deaths of despair" were correlated with higher vote shares for Trump. These three variables (and/or adjacent ideas) are all narratives that have been floated by pundits, and sometimes by scholars or other data journalists, as themes that might help explain Trump's appeal. As a result, I was interested in testing those narratives specifically on Maryland's election results. Due to time constraints, I was only able to finish testing those narratives against 2020's election results before this assignment's deadline. Later on, I hope to see if my findings are the same using 2016 election results, too.
+I also reached out to Maryland’s Opioid Operational Command Center and requested OD data at any geographic level more granular than county, but they said county-level is the lowest they have data for. They said I could try asking the Vital Statistics Administration directly, but he wasn't sure if they'd be able to share the data. I unfortunately didn't have time before the deadline to try asking the VSA anyway.
+
+The project I pursued was testing whether immigration, declines in the proportion of the population that is white-only, and/or rates of certain types of "deaths of despair" were correlated with higher vote shares for Trump. These three variables (and/or adjacent ideas) are all narratives that have been floated by pundits, and sometimes by scholars or other data journalists, as themes that might help explain Trump's appeal. As a result, I was interested in testing those narratives specifically on Maryland's election results. Due to time constraints, I was only able to finish testing those narratives against 2020's election results before this assignment's deadline. During winter break, I hope to complete a second set of analyses and see if my findings are the same using 2013-2016 data, too.
 
 The original migration data was originally formatted so each row represents a year, and each column represents a county's (or statewide) net international migration for that year. While reading in the data, I decided to pivot the dataframe so columns were counties and columns were years. This made it easier to work with and join with the rest of the data I was working with.
 
+The visualizations in this notebook are a little bland because they're geared towards the statistical tests/checks I was doing (which was necessary to confirm if the potential story was "real" before pursuing it!) If any of my story pitches were accepted, my goal would be to expand my analysis on that specific topic and create interactive, story-focused visualizations and maps that allow readers to explore the data and the connections I found in Analysis 1 and/or 2.
+
 The three story ideas I would pitch are:
 
-- There's a narrative that part of Trump's appeal is a response/backlash to large amounts of immigration. However, areas experiencing higher levels of migration voted for Trump at LOWER rates. Is this simply an effect of higher rates of immigrants settling in urban/suburban areas that already lean away from Trump? Or -- more interestingly -- is there an observable effect where greater exposure to immigrants actually decreases the likelihood that someone's voting behavior will reflect xenophobic attitudes? I would like to interview immigration and refugee settlement organizations to better understand how/where immigrants settle, why they settle there, and what input they have on community reactions to and integration with imigrant communities.
+- There's a narrative that part of Trump's appeal is a response/backlash to large amounts of immigration. However, areas experiencing higher levels of immigration voted for Trump at LOWER rates. Is this simply an effect of higher rates of immigrants settling in urban/suburban areas that already lean away from Trump? Or -- more interestingly -- is there an observable effect where greater exposure to immigrants actually decreases the likelihood that someone's voting behavior will reflect xenophobic attitudes? I would like to interview immigration and refugee settlement organizations to better understand how/where immigrants settle, why they settle there, and what input they have on community reactions to and integration with immigrant communities. I would also like to interview people with nativist/xenophobic political attitudes that live in areas with relatively small levels of immigration. I'm curious to see whether the real reason they're motivated to vote on that issue is because they're actually perceiving/reacting to increased immigration OUTSIDE their community and falsely believe it's occurring in theirs too. I would actually/genuinely be really interested in reporting on this.
 
-- Counties experiencing larger declines in the proportion of their population that is white-only also voted against Trump at larger rates. Is this an effect of "white flight" or just changing demographics in an otherwise stable population? I'd like to find out if white citizens specifically are leaving the counties with the largest declines -- if so, where are they moving to? And are those locations seeing corresponding increases in their Republican/Trump vote shares?
+- Counties experiencing larger declines in the proportion of their population that is white-only also voted against Trump at larger rates. Is this an effect of "white flight" or just changing demographics in an otherwise stable population? I'd like to find out if white citizens specifically are leaving the counties with the largest declines -- if so, where are they moving to? And are those locations seeing corresponding increases in their Republican/Trump vote shares? Of the white citizens that remain in regions experiencing huge declines in the white population, are their political views/values being influenced by those demographic changes? I would actually/genuinely be really interested in reporting on this one, too.
 
-- Baltimore was a HUGE outlier in my overdose analysis -- why is that? Is it just because it's the only location in my data that isolates a standalone urban geography, and urban locations in general have similar OD rates? Or does Baltimore's rate far surpass even other urban locations in MD? This obviously isn't election-related, but it stands out to me as the most interesting finding in an analysis that otherwise didn't have the most interesting or strongest findings, statistically.
+- Baltimore was a HUGE outlier in my overdose analysis -- why is that? Is it just because it's the only location in my data that isolates a standalone urban geography, and urban locations in general have similarly massive OD rates? Or does Baltimore's rate far surpass even other urban locations in MD (or the wider region)? This obviously isn't election-related, but it stands out to me as the most interesting finding in an analysis that otherwise didn't have the most interesting or strongest findings, at least statistically.
 
-Sources:
+Data Sources:
 
 - Migration data: https://opendata.maryland.gov/Demographic/Maryland-International-Migration-2001-2021/hq27-cfrc
 
 - 2020 Election results: https://docs.google.com/spreadsheets/d/1oSzr7O14vzRxeethgAnugADhgHhZG4xX1DOh1ElmCNc/edit?usp=sharing
 I manually copied and pasted this data into a google sheet and exported to csv, originally from: https://elections.maryland.gov/elections/2020/results/general/gen_detail_results_p2020_4_BOT001-.html)
+
 
 - Population data: ACS data accessed via tidyverse
 
@@ -89,7 +94,7 @@ Next, I needed to load 2020 election data and ensured that the rows/columns in t
 
 md_2020_county_election_results <- read_csv("data/md_2020_county_election_results.csv") %>%
   clean_names() %>%
-  #chatGPT helped me with the next few lines
+  #chatGPT helped me with the next few lines to calculate the total votes cast in each county via a row-wise sum 
   rowwise() %>%
   mutate(total_county_votes = sum(c_across(-1), na.rm = TRUE)) %>%
   select(jurisdiction, donald_j_trump_and_michael_pence_republican, joe_biden_and_kamala_harris_democratic, total_county_votes)
@@ -124,7 +129,7 @@ md_2020_election_and_migration <- migration_17_20 %>%
 md_2020_election_and_migration
 ```
 
-These counties have drastically different populations, so I needed to incorporate ACS data to calculate per capita migration levels which would allow me to compare levels across counties.
+These counties have drastically different populations, so I needed to incorporate ACS data to get total population numbers and calculate per capita migration levels, which would allow me to compare migration rates across counties.
 
 ```{r}
 # load ACS data for 2020 (variable: B01003_001)
@@ -195,7 +200,7 @@ ggplot(full_2020_df, aes(x = trump_vote_share, y = migration_per_capita)) +
 ```
 
 
-There's heteroscedasticity. My data also isn't normally distributed -- let's visualize that with a histogram to check the extent of the problem:
+There's heteroscedasticity. My data also isn't normally distributed -- let's visualize that with a histogram to illustrate the extent of the problem:
 
 ```{r}
 # Create a histogram

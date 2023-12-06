@@ -71,7 +71,7 @@ migration_df_transformed <- migration_df %>%
                names_to = "county",
                values_to = "migration")
 ```
-Next, I wanted to make a df showing total migration from 2017-2020 per county. I also saw that some of the other data I would be working with referred to statewide totals as "State Level," so I updated the name in this df accordingly
+Next, I wanted to make a df showing average migration from 2017-2020 per county. I also saw that some of the other data I would be working with referred to statewide totals as "State Level," so I updated the name in this df accordingly
 
 ```{r}
 

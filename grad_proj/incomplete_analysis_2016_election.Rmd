@@ -1,0 +1,124 @@
+---
+title: "2016 Election"
+author: "Aidan Hughes"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(tidycensus)
+library(janitor)
+library(stringi)
+```
+
+
+# Analysis 1:
+
+Use the "Maryland International Migration: 2001-2021" data set in combination with 2016 election results to see whether regions experiencing higher rates of migration are positively correlated with a vote swing towards Donald Trump in 2016.
+
+Since most of the other data I would be working with had MD's counties as rows rather than columns, I needed to use pivot_longer() and chatGPT's explanation of how the function works to transform my data set.
+
+
+```{r}
+# Load the Maryland Migration data
+
+
+migration_df <- read_csv("data/Maryland_International_Migration__2001-2021.csv")
+
+migration_df_transformed <- migration_df %>%
+  select(-`Date created`) %>%
+  pivot_longer(cols = !Year,
+               names_to = "county",
+               values_to = "migration")
+```
+Next, I wanted to make a df showing total migration from 2013-2013 per county. I also saw that some of the other data I would be working with referred to statewide totals as "State Level," so I updated the name in this df accordingly
+
+```{r}
+
+migration_13_16 <- migration_df_transformed %>%
+  filter(Year >= 2013 & Year <= 2016) %>%
+  group_by(county) %>%
+  summarize(avg_migration = sum(migration) / 4) %>%
+  mutate(county = str_replace(county, " County", ""))
+
+#ChatGPT helped with this line
+migration_13_16$county[migration_13_16$county == "MARYLAND"] <- "State Level"
+
+migration_13_16
+```
+
+Next, I needed to load 2016 election data and ensured that the rows/columns in the df would allow me to join with the migration data later on. I also came back to this step later on to crate a trump_won boolean column, which would later allow me to compare migration levels in counties that Trump won vs ones he lost.
+
+I grouped the data to get a list of unique county names so I could check which cleaning steps would be necessary for those names
+
+```{r}
+
+county_election_results <- read_csv("data/countypres_2000-2020.csv")
+
+county_election_results <- county_election_results %>%
+  filter(state == "MARYLAND" & year == 2016)
+
+# check the list of unique county names to see what we'll need to clean
+
+county_election_results %>%
+  group_by(county_name) %>%
+  summarise()
+```
+They need to be title cased and St. Mary's needs a period.
+
+```{r}
+county_election_results$county_name <- tolower(county_election_results$county_name)               # Convert to lowercase
+county_election_results$county_name <- tools::toTitleCase(county_election_results$county_name)    # Capitalize first letter of each word
+county_election_results$county_name <- gsub("St Mary’s", "St. Mary's", county_election_results$county_name)  # Add period after "St"
+
+county_election_results %>%
+  group_by(county_name) %>%
+  summarise()
+```
+Check the encoding before I lose my mind again (re: Analysis 3 in the 2020 notebook)
+
+```{r}
+encodings <- sapply(county_election_results, function(county_name) stri_enc_mark(county_name))
+
+print(encodings)
+```
+
+Good to go.
+
+Let's check candidate names
+
+```{r}
+county_election_results %>%
+  group_by(candidate) %>%
+  summarise()
+```
+
+Those candidate names will need to be updated to match the 2020 notebook's data format. Also need to do some transformations so I have column a column with the total votes Biden received in each county, and the same for Trump, rather than rows of itemized votes by type of ballot cast. We'll do this after the pivot though since we can make those updates by just renaming the columns at that point.
+
+Looking at the df again:
+
+```{r}
+county_election_results
+```
+
+```{r}
+grouped_df <- county_election_results %>%
+  group_by(candidate, county_name, totalvotes) %>%
+  summarise(votes = sum(candidatevotes)) %>%
+  arrange(county_name)
+
+grouped_df
+```
+```{r}
+grouped_df %>%
+  pivot_wider(names_from = candidate,
+    values_from = votes)
+```
+
+
+
+
+
+
+
